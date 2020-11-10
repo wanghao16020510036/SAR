@@ -1,0 +1,229 @@
+---
+title: "Report III"
+author: "Yang yang,Jiang heng,Wang hao,Guo siying"
+date: "2020/11/7"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(reshape2)
+require(ggplot2)
+require(ggthemes)
+theme_set(theme_minimal())
+require(GGally)
+require(ggExtra)
+```
+
+## Operations Analysis of Assignment III
+This assignment consists in a single task: load the bright.Rdata
+data and, assuming that the number of looks is L0 = 1:
+
+1. Fit the SAR Gamma model Γ (μ, L0) (notice that you have to estimate only μ);
+2. Fit the model (you have to estimate α, γ).$$𝒢_I^0(α, γ, L0)$$
+Show two results in this part:  
+• Moments estimators  
+• Maximum Likelihood estimators 
+
+“Fitting a model”, in this assignment, means:  
+• reporting the estimates (one for the Γ (μ, L0) model, and two pairs for the $$𝒢_I^0(α, γ, L0)$$model).  
+• showing a histogram of the data along with the three estimated densities.  
+
+The (SAR) Gamma distribution is
+
+$$Z \sim {} \Gamma(\mu, L)$$
+density:
+
+$$
+f_\Gamma(z; L, \mu)=\frac{L^L}{\mu^L\Gamma(L)}z^{L-1}exp{(\frac{-Lz}{\mu})}
+$$
+let L = 1
+
+the density will be:
+
+$$
+f_\Gamma(z; 1, \mu)=\frac{1^1}{\mu^1\Gamma(1)}z^{1-1}exp{(\frac{-1z}{\mu})}
+$$
+$$
+\Gamma(1)=\int_0^{Inf} t^{(1-1)}exp(-t)dt=1
+$$
+
+which equal to:
+
+$$
+f_\Gamma(z; 1, \mu)=\frac{1}{\mu}exp{(\frac{-z}{\mu})}
+$$
+
+maximum likelihood estimation for gamma:
+
+The function of L is:
+
+$$
+L=\prod_{i=1}^n(\frac{1}{\mu}e^{(\frac{-z_i}{\mu})})
+$$
+
+$$
+lnL=-nln{\mu}+\frac{\sum_{i=1}^{n}-z_i}{\mu}
+$$
+
+$$
+\frac{\mathrm{d}lnL}{\mathrm{d}\mu}=-\frac{n}{\mu}+\frac{\sum_{i=1}^{n}z_i}{\mu^2}=0
+$$
+$$
+\hat\mu=\frac{\sum_{i=1}^nz_i}{n}
+$$
+
+```{r load bright.data}
+load("C:/Users/ASUS/Desktop/Statistics-SAR-Intensity-master/Data/R/bright.Rdata")
+```
+
+the μ should be:
+
+```{r}
+bright.v = as.vector(bright)
+bright.df = data.frame(as.vector(bright))
+
+u = mean(bright.v)
+print(u)
+```
+
+The density for (SAR) gamma in this bright.
+
+```{r Moments estimators}
+bright.v = as.vector(bright)
+bright.df = data.frame(as.vector(bright))
+
+u = mean(bright.v)
+
+f <- function(x){1/u*exp(1)^(-x/u)}
+x <- seq(0, 500000, length.out=10)
+y = f(x)
+
+y.df = data.frame(as.vector(y))
+xy.df<-data.frame(x=x,y)
+
+
+ggplot(bright.df, aes(x=bright)) +
+  geom_histogram(aes(y=..density..),
+                 col="blue", fill="white")+
+  geom_density(col="red", size=1)+
+  scale_x_log10()
+```
+
+
+## The G0I distribution
+The G0I density is:
+$$
+f_z(z;\alpha,\gamma,L)=\frac{L^L\Gamma(L-\alpha)}{\gamma^\alpha\Gamma(L)\Gamma(-\alpha)}\frac{z^L}{(\gamma+Lz)^{L-\alpha}}
+$$
+when L=1:
+
+$$
+f_z(z;\alpha,\gamma,1)=\frac{\Gamma(1-\alpha)}{\gamma^\alpha\Gamma(-\alpha)}\frac{z}{(\gamma+z)^{1-\alpha}}
+$$
+
+$$
+f_z(z;\alpha,\gamma,1)=\frac{-\alpha}{\gamma^\alpha}\frac{z}{(\gamma+z)^{1-\alpha}}
+$$
+moment estimation for G0I: 
+
+$$
+E(z^k)=(\frac{\gamma}{L})^k\frac{\Gamma(-\alpha-k)}{\Gamma(-\alpha)}\frac{\Gamma(L+k)}{\Gamma(L)}
+$$
+
+when L=1, k=1:
+
+$$
+E(z)=\gamma\frac{\Gamma(-\alpha-1)}{\Gamma(-\alpha)}
+$$
+$$
+E(z)=\frac{\gamma}{-\alpha-1}
+$$
+when L=1, k=2
+$$
+E(z^2)=2\gamma^2\frac{\Gamma(-\alpha-2)}{\Gamma(-\alpha)}
+$$
+$$
+E(z^2)=\frac{2\gamma^2}{(-\alpha-1)(-\alpha-2)}
+$$
+
+we can solve α and $\gamma$ by E(z) and E(z^2).
+
+
+Let m1 = E(z), m2 = E(z^2)  
+We will get:
+
+$$
+\hat\alpha=\frac{2m2-2m1^2}{2m1^2-m2}
+$$
+$$
+\hat\gamma=\frac{m1*m2}{m2-2m1^2}
+$$
+
+the α and $\gamma$ in GOI should be:
+
+```{r}
+bright.v = as.vector(bright)
+bright.df = data.frame(as.vector(bright))
+
+m1 = mean(bright.v)
+m2 = mean(bright.v^2)
+#m3 = m2/m1^2
+
+alpha = (2*m2-2*m1^2)/(2*m1^2-m2)
+
+pgamma = m1*m2/(m2-2*m1^2)
+
+print(alpha)
+print(pgamma)
+
+```
+
+Maximum likelihood estimation for G0I:
+
+The function of L is:
+
+$$
+L=\prod_{i=1}^n\frac{-\alpha}{\gamma^\alpha}\frac{z_i}{(\gamma+z_i)^{1-\alpha}}
+$$
+
+$$
+\frac{\mathrm{d}lnL}{\mathrm{d}\alpha}=0
+$$
+$$
+\hat\alpha=\frac{1}{ln(\gamma)-\sum_{i=1}^{n}ln(\gamma+z_i)/n}
+$$
+
+
+```{r}
+bright.v = as.vector(bright)
+bright.df = data.frame(as.vector(bright))
+
+m1 = mean(bright.v)
+m2 = var(bright.v)
+m3 = m2/m1^2
+
+alpha = 2*m3/(1-m3)
+
+pgamma = -m1*(1+m3)/(1-m3)
+
+f_z <- function(z){(-alpha)/(pgamma^alpha)*(z)/(pgamma+alpha)^(1-alpha)}
+
+x <- seq(.1, 1e+8, length.out=50000)
+
+y <- f_z(x)
+
+ggplot(data= NULL, aes(x = x, y = y)) +
+  geom_line(color = "blue", size=2)+
+  scale_x_log10()
+
+ggplot(bright.df, aes(x=bright)) +
+  geom_density(col="red", size=1)+
+  scale_x_log10()
+
+```
+
+
