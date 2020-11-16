@@ -1,0 +1,342 @@
+---
+title: "Report 4"
+author: "Wang Hao, Yang Yang, Jiang Heng, Siying Guo"
+date: "2020/11/16"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(reshape2)
+require(ggplot2)
+require(ggthemes)
+require(maxLik)
+theme_set(theme_minimal())
+require(GGally)
+require(ggExtra)
+library(readr)
+library(ggplot2)
+library(reshape2)
+source("imagematrix.R")
+source("rayl.R")
+```
+
+Assignment IV
+The assignment consists in producing a report (text, code, plots, and images) about the two following topics.
+
+1. Consider the Rayleigh distribution characterized by the probability density function
+$$
+f_x(x;\delta^2)=\frac{x}{\delta^2}exp{(-x^2/(2\delta^2))}1_{R_+(x)}
+$$
+where σ > 0. This is a model for amplitude SAR data.  
+1.1 Knowing that $E X = σ \sqrt{π/2}$ and that $Var X = σ^2(4 − π)/2$, obtain two estimators for σ2 based on analogy: one of them $\hat σ^2_1$   based on the first sample moment.  
+1.2 Obtain $\hat σ^2_{ML}$ the maximum likelihood estimator of σ2.  
+1.3 Compare the performance of $\hat σ^2_1$, $\hat σ^2_{ML}$, and $\hat σ^2$ the improved version of $\hat σ^2_1$ by bootstrap.
+
+2. Define a phantom (different from the ones we saw), define a data model for this phantom, produce one observation, and analyze the effect of the mean and median filters on this image.
+
+
+$$
+f_x(x;\delta^2)=\frac{x}{\delta^2}exp{(-x^2/(2\delta^2))}1_{R_+(x)}
+$$
+
+Theoretical reference
+
+the first moment estimate of σ is:
+$$
+\hat σ^2_1=\frac{E(x)^2}{\pi/2}
+$$
+the maximum likelihood of σ is:
+$$
+\hat σ^ 2_ {ML}=\frac{\sum_{i=1}^{n} x_i^2}{2n}
+$$
+
+4.1 
+We generated many random numbers conforming to the Rayleigh distribution (where σ=1.5) to simulate a huge SAR image.
+```{r Moments estimators}
+z = seq(0, 15, length.out =150000)
+N = length(z)
+rl = rep(0,N)
+i = 1
+for (x in z)
+{
+  rl[i] = drayl(x,1.5)
+  i = i + 1
+}
+sum_all = sum(rl)
+RL = rep(0,N)
+i=1
+while(i <= N)
+{
+  RL[i]=sum(rl[1:i])/sum_all
+  i=i+1
+}
+############################################
+data_n = 20000
+data= rep(0,data_n)
+k=1
+count = data_n
+while(k<=data_n)
+{
+  p_rand = runif(1, min=0, max=1)
+  i = 1
+  while(i<=N)
+  {
+    if(RL[i]>=p_rand)
+    {break}
+    i=i+1
+  }
+  left = (RL[i-1]-p_rand)^2
+  right = (RL[i]-p_rand)^2
+  if(left>right)
+  {
+    data[k]=z[i]
+  }else
+  {
+    data[k]=z[i-1]
+  }
+  if(data[k]<=0.1)
+  {
+    data[k]=-1
+    count = count-1;
+  }
+  k = k+1
+}
+data_z= rep(0,count)
+i=1
+k=1
+while(i<=data_n)
+{
+  if(data[i]>=-0.5)
+  {
+    data_z[k]=data[i]
+    k=k+1
+  }
+  i=i+1
+}
+scl = seq(0,15,0.2)
+hist(data_z, breaks = scl,probability = T)
+c = mean(data_z)*2/sqrt(2*3.13159)
+y = rep(0,N)
+i=1
+for (x in z)
+{
+  y[i] = drayl(x,c)
+  i = i + 1
+}
+lines(z,y, type='l',col="red")
+```
+
+```{r}
+c
+```
+
+The σ calculated using the first-order moment estimation is 1.509375, which is Very close to the ideal value of 1.5. Of course, the Rayleigh distribution curve and histogram are very consistent.
+
+```{r Moments estimators improved by bootstrap}
+c1 = sqrt(sum(data_z^2)/2/count)
+y1 = rep(0,N)
+i=1
+for (x in z)
+{
+  y1[i] = drayl(x,c1)
+  i = i + 1
+}
+hist(data_z, breaks = scl,probability = T)
+lines(z,y1, type='l',col="blue")
+```
+
+```{r}
+c1
+```
+
+The σ calculated using the first-order moment estimators improved by bootstrap is 1.505534, which is more close to the ideal value of 1.5. Of course, the Rayleigh distribution curve and histogram are also very consistent.
+
+4.2 
+Phantom image data generation and filter analysis
+```{r Phantom image data generation}
+strips=matrix(1:256,nrow = 256,ncol = 256)
+for(i in 1:256) 
+{
+  for(j in 1:256) 
+  {
+    if(i%/%10==8||i%/%10==12||i%/%10==13||i%/%10==17||i%/%10==18||i%/%10==19)
+    {
+      strips[i,j] = 1
+    }
+    else
+    {
+      if(j%/%10==1||j%/%10==6||j%/%10==7||j%/%10==16||j%/%10==21||j%/%10==23)
+      {
+        strips[i,j] = 1
+      }
+      else
+      {
+        strips[i,j] = 0
+      }
+    }
+  }
+}
+strips = normalize(strips)
+#Display the phantom
+plot(imagematrix(strips))
+```
+
+Add noise to the phantom image
+```{r}
+#Display the phantom image with random noise added
+strips.Exp <- ((strips + 0.1) * 2) * rexp(256*256)
+plot(imagematrix(equalize(strips.Exp)))
+```
+
+```{r}
+#shows a horizontal and e vertical transect of 
+#both the phantom (in dark violet)and the observed (in violet) data.
+#The mean values (0.1 and 5) are shown as dashed black lines.
+#Vertical transect
+ggplot(as.data.frame(strips.Exp), aes(x=1:256)) +
+  geom_hline(yintercept = 0.1, linetype="longdash") +
+  geom_hline(yintercept = 5, linetype="longdash") +
+  geom_line(data=as.data.frame(strips), y=((strips + 0.1) * 2)[,223],
+            size=3, col="blueviolet", alpha=.5) +
+  geom_line(y=strips.Exp[,223], col="purple") +
+  expand_limits(y=range(strips.Exp[,223])) +
+  xlab("Line") + ylab("Observation") + ggtitle("Vertical transect") +
+  scale_x_continuous(breaks=c(1, 128, 256)) +
+  scale_y_continuous(breaks=c(5,10,60)) 
+#Horizontal transect
+ggplot(as.data.frame(strips.Exp), aes(x=1:256)) +
+  geom_hline(yintercept = 0.1, linetype="longdash") +
+  geom_hline(yintercept = 5, linetype="longdash") +
+  geom_line(data=as.data.frame(strips), y=((strips + 0.1) * 2)[214,],
+            size=3, col="blueviolet", alpha=.5) +
+  geom_line(y=strips.Exp[214,], col="purple") +
+  expand_limits(y=range(strips.Exp[214,])) +
+  xlab("Line") + ylab("Observation") + ggtitle("Horizontal transect") +
+  scale_x_continuous(breaks=c(1, 128, 256)) +
+  scale_y_continuous(breaks=c(5,10,60))
+```
+
+Define Mean Filter and Median Filter
+```{r}
+###Mean Filter###
+Mean = function(y, s) 
+{
+    # Input: the image and the side of the squared support
+    # Output: filtered image z
+    # Input image dimensions
+    m = dim(y)[1]
+    n = dim(y)[2]
+    # Make space for the output image
+    z = y
+    # Main loop
+    margin = (s+1)/2
+    marginm1 = margin-1
+    for(k in margin:(m-margin)) 
+    {
+      for(ele in margin:(n-margin)) 
+      {
+        values = y[(k-marginm1):(k+marginm1),(ele-marginm1):(ele+marginm1)]
+        z[k,ele] = mean(values)
+      }
+    }
+    return(z)
+}
+###Median Filter###
+Median = function(y, s) 
+{
+    # Input: the image and the side of the squared support
+    # Output: filtered image z
+    # Input image dimensions
+    m = dim(y)[1]
+    n = dim(y)[2]
+    # Make space for the output image
+    z = y
+    # Main loop
+    margin = (s+1)/2
+    marginm1 = margin-1
+    for(k in margin:(m-margin)) 
+    {
+      for(ele in margin:(n-margin)) 
+      {
+        values <- y[(k-marginm1):(k+marginm1),(ele-marginm1):(ele+marginm1)]
+        z[k,ele] = median(values)
+      }
+    }
+    return(z)
+  }
+
+```
+
+Analysis of the effects of two filters under two scales
+```{r 3x3 Mean Filtering}
+zMean3 = Mean(strips.Exp, 3)
+plot(imagematrix(equalize(zMean3)))
+```
+
+```{r 7x7 Mean Filtering}
+zMean7 = Mean(strips.Exp, 7)
+plot(imagematrix(equalize(zMean7))) 
+```
+
+We can see that due to the increase in the size of the mask, the latter is more blurred than the former.
+```{r 3x3 Median Filtering}
+zMedian3 <- Median(strips.Exp, 3)
+plot(imagematrix(equalize(zMedian3)))
+```
+
+```{r 7x7 Median Filtering}
+zMedian7 <- Median(strips.Exp, 7)
+plot(imagematrix(equalize(zMedian7)))
+```
+
+Similarly, due to the increase in the size of the mask, the latter is more blurred than the former.
+
+Horizontal transects analysis after applying the mean and median filters of sizes 3×3
+```{r Transects after 3x3 Filtering}
+transects.3 = data.frame(
+  Line = 7:249,
+  Strips = as.vector(((strips + 0.1) * 2)[102,7:249]),
+  Mean = as.vector(zMean3[102,7:249]),
+  Median = as.vector(zMedian3[102,7:249]*sqrt(2))
+)
+transects.3.flat = melt(transects.3,
+                         measure.vars = c("Strips", "Mean", "Median"))
+names(transects.3.flat) = c("Line", "Data", "Observations")
+#shows a horizontal transect after applying the mean and median filters of sizes 3×3
+ggplot(transects.3.flat,
+  aes(x=Line, y=Observations, col=Data)) +
+  geom_line() +
+  geom_hline(yintercept = 0.1, linetype="longdash", col="cornsilk3") +
+  geom_hline(yintercept = 10, linetype="longdash", col="cornsilk3") +
+  xlab("Line") + ylab("Observation") +
+  ggtitle("Horizontal transect, 3x3 windows") +
+  scale_x_continuous(breaks=c(4, 128, 252)) +
+  scale_y_continuous(breaks=c(5,10,60))
+```
+
+```{r Transects after 7x7 Filtering}
+transects.7 <- data.frame(
+  Line = 7:249,
+  Strips = as.vector(((strips + 0.1) * 2)[102,7:249]),
+  Mean = as.vector(zMean7[102,7:249]),
+  Median = as.vector(zMedian7[102,7:249]*sqrt(2))
+)
+transects.7.flat <- melt(transects.7,
+                          measure.vars = c("Strips", "Mean", "Median"))
+names(transects.7.flat) <- c("Line", "Data", "Observations")
+#shows a horizontal transect after applying the mean and median filters of sizes 7×7
+ggplot(transects.7.flat,
+       aes(x=Line, y=Observations, col=Data)) +
+  geom_line() +
+  geom_hline(yintercept = 0.1, linetype="longdash", col="cornsilk3") +
+  geom_hline(yintercept = 10, linetype="longdash", col="cornsilk3") +
+  xlab("Line") + ylab("Observation") +
+  ggtitle("Horizontal transect, 7x7 windows") +
+  scale_x_continuous(breaks=c(4, 128, 252)) +
+  scale_y_continuous(breaks=c(5,10,60))
+```
+
